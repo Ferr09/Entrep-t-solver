@@ -1,0 +1,344 @@
+import tkinter as tk
+from tkinter import ttk, Canvas, Toplevel
+import pandas as pd
+
+quantite_options = 7
+
+class Electromenager:
+    def __init__(self, nom, dimensions, priorite, poids, quantite):
+        self.nom = nom
+        self.dimensions = dimensions
+        self.priorite = priorite
+        self.poids = poids
+        self.quantite = quantite
+
+# Crear la ventana principal
+fenetre_principale = tk.Tk()
+fenetre_principale.title("Interface entrepot solver")
+
+# Crear el Notebook
+notebook = ttk.Notebook(fenetre_principale)
+notebook.pack(fill="both", expand=True)
+
+# Crear la primera pestaña para ingresar los valores de los productos
+electromenagers_frame = ttk.Frame(notebook)
+notebook.add(electromenagers_frame, text="Éléctroménagers")
+
+frame_gauche = ttk.Frame(electromenagers_frame)
+frame_gauche.pack(side='left', fill='both', expand=True, padx=10, pady=15)
+
+# Crear un frame a la derecha para otros contenidos
+frame_droit = ttk.Frame(electromenagers_frame)
+frame_droit.pack(side="right", fill="both", expand=True, padx=10, pady=3)
+
+label_droit = tk.Label(frame_droit, text="Ordre priorité", font=("Helvetica", 9, "bold"))
+label_droit.pack(pady=12)
+
+label_gauche = tk.Label(frame_gauche, text="Quantité", font=("Helvetica", 9, "bold"))
+label_gauche.pack()
+
+# Crear una lista desplegable (OptionMenu)
+options = ["Choisir"] + [str(i+1) for i in range(quantite_options)]
+options_selectionnees = []
+
+menus_deroulants = []
+
+for i in range(quantite_options):
+    option = tk.StringVar(value="Choisir")  # Definir el valor por defecto en "Choisir"
+    options_selectionnees.append(option)
+    menu_deroulant = tk.OptionMenu(frame_droit, option, *options)
+    menu_deroulant.pack(pady=9)
+    menus_deroulants.append(menu_deroulant)
+    menu_deroulant.variable = option  # Asignar la variable al widget OptionMenu
+
+def supprimer_option(option, menus):
+    for menu in menus:
+        menu['menu'].delete(option, option)
+
+def mettre_a_jour_options_disponibles(*args):
+    options_disponibles = set(options)
+    for menu in menus_deroulants:
+        selection = menu.variable.get()
+        if selection in options_disponibles:
+            options_disponibles.remove(selection)
+    sorted_options = sorted(options_disponibles)  # Ordenar las opciones
+    for menu in menus_deroulants:
+        menu['menu'].delete(0, 'end')
+        menu['menu'].add_command(label="Choisir", command=tk._setit(menu.variable, "Choisir"))
+        for option in sorted_options:
+            menu['menu'].add_command(label=option, command=tk._setit(menu.variable, option))
+
+# Registrar la función mettre_a_jour_options_disponibles como callback cada vez que una variable se modifique
+for menu in menus_deroulants:
+    menu.variable.trace_add('write', mettre_a_jour_options_disponibles)
+
+# Productos
+produits = ['lave_linge', 'seche_linge', 'lave_vaisselle', 'refrigerateur', 'congelateur', 'cave_a_vin', 'four']
+
+# Crear un diccionario para almacenar las Entry
+entries = {}
+
+# Iterar sobre los elementos en 'produits'
+for element in produits:
+    # Crear una etiqueta para el nombre del producto
+    etiquette = tk.Label(frame_gauche, text=f"Quantité des {element}s : ")
+    etiquette.pack()
+
+    # Crear una Entry para ingresar la cantidad del producto
+    entry_nom = tk.Entry(frame_gauche)
+    entry_nom.pack(pady=5)
+
+    # Almacenar la Entry en el diccionario
+    entries[element] = entry_nom
+
+def obtenir_valeurs():
+    valeurs_selectionnees = [option.get() for option in options_selectionnees]
+    print("Valeurs sélectionnées :", valeurs_selectionnees)
+
+def recuperer_valeurs():
+    valeurs = {}
+    for element in produits:
+        valeurs[element] = int(entries[element].get()) if entries[element].get().isdigit() else 0
+    print("Quantités ", valeurs)
+    return valeurs
+
+def recuperer_valeurs_priorite():
+    valeurs_priorite = [int(option.get()) if option.get().isdigit() else 0 for option in options_selectionnees]
+    print("Priorités ", valeurs_priorite)
+    return valeurs_priorite
+
+def valider():
+    valeurs_quantite = recuperer_valeurs()
+    valeurs_priorite = recuperer_valeurs_priorite()
+    afficher_repartition(valeurs_quantite, valeurs_priorite)
+    changer_onglet()
+
+def changer_onglet():
+    notebook.select(1)
+
+# Crear una segunda pestaña vacía para la distribución
+resultat = ttk.Frame(notebook)
+notebook.add(resultat, text='Répartition proposée')
+
+# Asignar colores a cada tipo de electrodoméstico (hacerlo global)
+color_map = {
+    'Lave-linge': '#1f77b4',    # Bleu
+    'Sèche-linge': '#ff7f0e',   # Orange
+    'Lave-vaisselle': '#2ca02c', # Vert
+    'Réfrigérateur': '#d62728',  # Rouge
+    'Congélateur': '#9467bd',   # Violet
+    'Cave-à-vin': '#8c564b',    # Marron
+    'Four': '#e377c2'           # Rose
+}
+
+def afficher_repartition(valeurs_quantite, valeurs_priorite):
+    # Crear los electrodomésticos con los nuevos valores
+    electromenagers = [
+        Electromenager('Lave-linge', (0.6, 0.6, 0.85), valeurs_priorite[0], 70, valeurs_quantite['lave_linge']),
+        Electromenager('Sèche-linge', (0.6, 0.6, 0.85), valeurs_priorite[1], 65, valeurs_quantite['seche_linge']),
+        Electromenager('Lave-vaisselle', (0.6, 0.6, 0.85), valeurs_priorite[2], 60, valeurs_quantite['lave_vaisselle']),
+        Electromenager('Réfrigérateur', (0.8, 0.7, 1.8), valeurs_priorite[3], 90, valeurs_quantite['refrigerateur']),
+        Electromenager('Congélateur', (0.8, 0.7, 1.8), valeurs_priorite[4], 85, valeurs_quantite['congelateur']),
+        Electromenager('Cave-à-vin', (0.5, 0.6, 1.2), valeurs_priorite[5], 50, valeurs_quantite['cave_a_vin']),
+        Electromenager('Four', (0.5, 0.5, 0.7), valeurs_priorite[6], 30, valeurs_quantite['four'])
+    ]
+
+    # Desarrollar la lista de electrodomésticos en función de la cantidad
+    expanded_list = []
+    for e in electromenagers:
+        expanded_list.extend([Electromenager(e.nom, e.dimensions, e.priorite, e.poids, 1) for _ in range(e.quantite)])
+
+    # Crear un DataFrame para facilitar la manipulación
+    data = {
+        'Nom': [e.nom for e in expanded_list],
+        'Dimensions': [e.dimensions for e in expanded_list],
+        'Priorité': [e.priorite for e in expanded_list],
+        'Poids': [e.poids for e in expanded_list]
+    }
+
+    global df  # Hacer df global para poder acceder desde otras funciones
+    df = pd.DataFrame(data)
+
+    # Ordenar por prioridad y peso
+    df = df.sort_values(by=['Priorité', 'Poids'], ascending=[True, False]).reset_index(drop=True)
+
+    # Definir las dimensiones de los espacios
+    espaces = [{'Rangée': r, 'Ligne': l, 'Longueur_totale': 7.2, 'Longueur_restante': 7.2, 'Etage': (r-1) // 18 + 1} for r in range(1, 36 + 1) for l in range(1, 3)]
+    # Añadir los espacios reservados para los refrigeradores
+    espaces.extend([{'Rangée': 13, 'Ligne': 1, 'Longueur_totale': 14.4, 'Longueur_restante': 14.4, 'Etage': 1},
+                    {'Rangée': 25, 'Ligne': 1, 'Longueur_totale': 14.4, 'Longueur_restante': 14.4, 'Etage': 2}])
+
+    # Función para asignar los espacios en función de la prioridad y el peso
+    def assigner_espaces(df, espaces):
+        assignations = []
+        for i in range(len(df)):
+            longueur_item = df.loc[i, 'Dimensions'][2]
+            assigné = False
+
+            for espace in espaces:
+                if espace['Longueur_restante'] >= longueur_item and (espace['Rangée'] != 13 and espace['Rangée'] != 25 or df.loc[i, 'Nom'] == 'Réfrigérateur'):
+                    espace['Longueur_restante'] -= longueur_item
+                    assignations.append({**espace, 'Index': i})
+                    assigné = True
+                    break
+
+            if not assigné:
+                print("Attention: Espace insuffisant pour tous les électroménagers")
+                break
+
+        return pd.DataFrame(assignations)
+
+    assignations_df = assigner_espaces(df, espaces)
+
+    # Verificar si hay rangées no asignadas
+    rangées_disponibles = set(range(1, 14)) | set(range(14, 26))
+    rangées_assignées = set(assignations_df['Rangée'])
+    rangées_non_assignées = rangées_disponibles - rangées_assignées
+
+    if rangées_non_assignées:
+        print("Rangées non assignées:", rangées_non_assignées)
+
+    # Añadir la información de ubicación al DataFrame original
+    df['Rangée'] = assignations_df.set_index('Index')['Rangée']
+    df['Ligne'] = assignations_df.set_index('Index')['Ligne']
+    df['Etage'] = assignations_df.set_index('Index')['Etage']
+
+    # Calcular el peso total del segundo piso
+    poids_total_deuxieme_etage = df[df['Etage'] == 2]['Poids'].sum()
+
+    # Creación de los canvas para los dos pisos
+    canvas1 = Canvas(resultat, width=800, height=600, bg='white')
+    canvas1.grid(row=1, column=0, padx=10, pady=10)
+    canvas1.create_text(400, 20, text="Rez-de-chaussée", font=("Arial", 16))
+
+    canvas2 = Canvas(resultat, width=800, height=600, bg='white')
+    canvas2.grid(row=1, column=1, padx=10, pady=10)
+    canvas2.create_text(400, 20, text="Premier étage", font=("Arial", 16))
+
+    # Añadir una indicación para la entrada de la máquina
+    canvas1.create_text(400, 580, text="Entrée de la machine", font=("Arial", 12), fill="red")
+    canvas2.create_text(400, 580, text="Entrée de la machine", font=("Arial", 12), fill="red")
+
+    # Añadir rectángulos fijos para cada rangée
+    def dessiner_rangées(canvas):
+        rangée_width = 150
+        rangée_height = 50
+        for i in range(12):
+            y = 50 + i * 60
+            canvas.create_rectangle(50, y, 50 + rangée_width, y + rangée_height, outline='black')
+            canvas.create_text(50 + rangée_width / 2, y + rangée_height / 2, text=f"Rangée {i + 1}")
+
+    dessiner_rangées(canvas1)
+    dessiner_rangées(canvas2)
+
+    # Función para trazar los electrodomésticos en un piso
+    def plot_etage(canvas, df, etage):
+        scale = 30  # Escala para agrandar las dimensiones de los electrodomésticos
+        offset_y = 50
+        rack_spacing = 60  # Espaciado entre las rangées para los pasillos
+        rack_y_offsets = {r: 50 + (r - 1) * rack_spacing for r in range(1, 13 + 1)}
+
+        for _, row in df[df['Etage'] == etage].iterrows():
+            if row['Rangée'] in rack_y_offsets:
+                color = color_map[row['Nom']]
+                x = (row['Ligne'] - 1) * (row['Dimensions'][2] + 0.2) * scale + 200
+                y = rack_y_offsets[row['Rangée']]
+                width = row['Dimensions'][0] * scale
+                height = row['Dimensions'][1] * scale
+                canvas.create_rectangle(x, y, x + width, y + height, fill=color, outline='black')
+
+    # Trazar los electrodomésticos en los dos pisos
+    plot_etage(canvas1, df, 1)
+    plot_etage(canvas2, df, 2)
+
+    # Crear una leyenda para los colores de los electrodomésticos y colocarla a la derecha
+    legend_frame = tk.Frame(resultat)
+    legend_frame.grid(row=1, column=2, padx=10, pady=10, sticky='n')
+
+    for nom, color in color_map.items():
+        tk.Label(legend_frame, text=nom, bg=color, width=20).pack(pady=5)
+
+    # Crear los botones para mostrar los detalles de las rangées
+    button_frame = tk.Frame(resultat)
+    button_frame.grid(row=0, column=0, columnspan=2, pady=10)
+    
+    def create_detail_button(rangée, etage):
+        return tk.Button(button_frame, text=f"Détails Rangée {rangée} (Étage {etage})", 
+                         command=lambda: afficher_detail_rangée(rangée, etage))
+
+    for r in range(1, 14):
+        btn = create_detail_button(r, 1)
+        btn.grid(row=(r-1)//quantite_options, column=(r-1)%quantite_options, padx=5, pady=5)
+    for r in range(14, 26):
+        btn = create_detail_button(r - 13, 2)
+        btn.grid(row=(r-1)//quantite_options, column=(r-1)%quantite_options, padx=5, pady=5)
+
+    # Mostrar número máximo de lave-linge que se pueden almacenar
+    max_lave_linge = sum(espace['Longueur_totale'] // 0.85 for espace in espaces)
+    label_max_lave_linge = tk.Label(resultat, text=f"Nombre máximo de lave-linge: {int(max_lave_linge)}")
+    label_max_lave_linge.grid(row=4, column=0, columnspan=2, pady=10)
+
+    # Mostrar el peso total que soporta el segundo piso
+    label_poids_total = tk.Label(resultat, text=f"Poids total supporté par le deuxième étage: {poids_total_deuxieme_etage} kg")
+    label_poids_total.grid(row=5, column=0, columnspan=2, pady=10)
+
+def afficher_detail_rangée(rangée, etage):
+    top = Toplevel()
+    top.title(f"Détail de la Rangée {rangée} - Étage {etage}")
+
+    canvas = Canvas(top, width=800, height=600, bg='white')
+    canvas.pack()
+
+    df_rangée = df[(df['Rangée'] == rangée) & (df['Etage'] == etage)]
+    scale = 30
+    offset_y = 50
+
+    for i, row in df_rangée.iterrows():
+        color = color_map[row['Nom']]
+        x = (i % 10) * (row['Dimensions'][2] + 0.2) * scale + 50
+        y = offset_y
+        width = row['Dimensions'][0] * scale
+        height = row['Dimensions'][1] * scale
+        canvas.create_rectangle(x, y, x + width, y + height, fill=color, outline='black')
+
+def afficher_base_de_donnees():
+    top = Toplevel()
+    top.title("Base de Données")
+
+    frame = ttk.Frame(top)
+    frame.pack(fill='both', expand=True)
+
+    tree = ttk.Treeview(frame, columns=list(df.columns), show='headings')
+    tree.pack(fill='both', expand=True)
+
+    for col in df.columns:
+        tree.heading(col, text=col)
+        tree.column(col, width=100)
+
+    for index, row in df.iterrows():
+        tree.insert("", tk.END, values=list(row))
+
+# Añadir una pestaña para la base de datos
+bd_frame = ttk.Frame(notebook)
+notebook.add(bd_frame, text="Base de Données")
+
+def mostrar_base_de_datos():
+    for widget in bd_frame.winfo_children():
+        widget.destroy()
+
+    tree = ttk.Treeview(bd_frame, columns=list(df.columns), show='headings')
+    tree.pack(fill='both', expand=True)
+
+    for col in df.columns:
+        tree.heading(col, text=col)
+        tree.column(col, width=100)
+
+    for index, row in df.iterrows():
+        tree.insert("", tk.END, values=list(row))
+
+# Botón para validar la selección y mostrar la distribución
+bouton_recuperer = tk.Button(electromenagers_frame, text="Valider", command=lambda: [valider(), mostrar_base_de_datos()])
+bouton_recuperer.pack(pady=20)
+
+# Iniciar el bucle principal de la aplicación
+fenetre_principale.mainloop()
